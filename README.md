@@ -696,23 +696,23 @@ So the five things below are the checks I would run earlier next time.
 
 Five things, in the order they would change a decision.
 
-**Let the threat model and the update frequency pick the architecture, before the framework conversation starts.** Those two properties eliminate more options, faster, than any preference about tooling. A daily update cycle and an operator who could be targeted narrowed three plausible architectures to one before anyone opened an editor.
+**The threat model and the update frequency decided more here than the framework ever could.** Those two properties eliminate more options, faster, than any preference about tooling. A daily update cycle and an operator who could be targeted narrowed three plausible architectures to one before anyone opened an editor.
 
 The check that does the work is one question:
 
 **How stale is a reader allowed to be?**
 
-If the honest answer is hours rather than milliseconds, you probably do not need most of the infrastructure you were about to build, and every piece you skip is a piece nobody has to defend, patch, or pay for.
+If the honest answer is hours rather than milliseconds, most of that infrastructure is not needed, and every piece skipped is a piece nobody has to defend, patch, or pay for.
 
-**Measure the wire before you touch the framework, and distrust the instrument before you distrust your understanding.** This project produced two separate cases of the tool lying: a network-idle heuristic reporting ~149 MB as 0.79 MB, and HEAD requests showing a CDN as permanently cache-missing. Both would have produced confident, wrong write-ups. A control page and a quarantine folder are cheap insurance against publishing either.
+**The instrument was wrong more often than my understanding was.** This project produced two separate cases of the tool lying: a network-idle heuristic reporting ~149 MB as 0.79 MB, and HEAD requests showing a CDN as permanently cache-missing. Both would have produced confident, wrong write-ups. A control page and a quarantine folder are cheap insurance against publishing either.
 
-**Decompose before you optimise.** The dashboard's ~570 MB looked like a big-data problem and was a data-modelling problem: one dataset stored five times. The "avatar storm" looked like a byte problem and was a request-count problem: of ~570 MB, only about 4 MB was images. Both assumptions survived until something split the total by type, and both would have sent me at the wrong fix.
+**A total says nothing about its own shape.** The dashboard's ~570 MB looked like a big-data problem and was a data-modelling problem: one dataset stored five times. The "avatar storm" looked like a byte problem and was a request-count problem: of ~570 MB, only about 4 MB was images. Both assumptions survived until something split the total by type, and both would have sent me at the wrong fix.
 
-**Design the seams, and design for whoever inherits them.** The parts of this system I am most confident in are not the fast parts. They are the versioned contract between two repositories that share no code, the client that is allowed to refuse an index it does not understand, the pipeline that stops instead of publishing a smaller number, and the fallback I deliberately broke before trusting. None of those made anything faster. All of them make it harder for the next person to break this quietly, which on a platform like this matters more than milliseconds.
+**The seams outlasted the optimisations.** The parts of this system I am most confident in are not the fast parts. They are the versioned contract between two repositories that share no code, the client that is allowed to refuse an index it does not understand, the pipeline that stops instead of publishing a smaller number, and the fallback I deliberately broke before trusting. None of those made anything faster. All of them make it harder for the next person to break this quietly, which on a platform like this matters more than milliseconds.
 
 The corollary is why the simpler option kept winning. It was never an aesthetic preference. A system maintained by one or two people has a hard ceiling on the cleverness it can carry, and building above that ceiling hands someone a bill they never agreed to.
 
-**A tradeoff you have accepted still needs a budget and an alarm.** This is the one I got wrong, and it is why this article has two halves.
+**An accepted tradeoff still needs a budget and an alarm.** This is the one I got wrong, and it is why this article has two halves.
 
 I want to be exact rather than flattering, because the distinction is the lesson. The client-weight cost was not a surprise: it is the direct, obvious consequence of moving work out of the request path, and we accepted it knowingly. What I cannot claim is that we wrote it down with a number attached, because no design-era document I can produce says so.
 
