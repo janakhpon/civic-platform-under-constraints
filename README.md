@@ -730,6 +730,4 @@ I want to be exact rather than flattering, because the distinction is the lesson
 
 That is the actual failure, and it is worse than forgetting. Understanding a tradeoff and instrumenting it are different acts, and only the second one outlives the people who made the decision. We had the understanding. We left no threshold, no budget, and no alert, so the cost grew for years with nobody assigned to notice until it was measured in minutes.
 
-Understanding a tradeoff is not the same as watching it.
-
-An unwatched tradeoff is just a bill you have not opened yet.
+A tradeoff nobody is watching is just a bill you have not opened yet.
