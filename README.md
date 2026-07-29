@@ -329,9 +329,7 @@ Immutable content-hashed chunks already make repeat visits free, as the 0.6 seco
 
 ---
 
-## Part 10: The two seams that had to hold
-
-### The contract between two codebases
+## Part 10: The seam that had to hold
 
 Everything above spans two repositories that share no code: a Node pipeline that publishes, and a Next.js frontend that consumes. Different package managers, different deploy cadences, different people plausibly touching them on different days.
 
@@ -344,16 +342,6 @@ The manifest carries a `contractVersion` and the expected row count. The fronten
 I verified that at line level across both repositories rather than assuming it: same contract version, same hash implementation, same shard count, same manifest shape, plus the row-count assertion. Then I proved it end to end on real hosting.
 
 The general shape is worth stealing: **when two systems must agree and cannot share code, version the agreement and let the consumer refuse.** A contract that can only be honoured by convention will eventually be broken by someone who never read the convention.
-
-### Designing for the person who inherits it
-
-I inherited this codebase once, which is the cheapest possible education in what to leave behind.
-
-Read together, several decisions above are the same decision. The automatic fallback means a bad publish degrades to the old experience instead of a blank page. The fail-loud pipeline means a partial fetch stops rather than shipping a smaller number. The contract version means a shape change is refused rather than mis-rendered. The content-hashed names mean a torn read is structurally impossible instead of merely unlikely. The rejected delta-sync design lost specifically because it needed a specialist to debug at 2am, and this system does not have one on call.
-
-None of those make the site faster. All of them make it harder for the next person, including future me, to break it quietly.
-
-That is also the honest answer to why the simpler option keeps winning here. It is not an aesthetic preference for simplicity. A system maintained by one or two people has a hard ceiling on how much cleverness it can carry, and designing above that ceiling is a way of handing someone a bill they did not agree to.
 
 ## Part 11: The 570 MB that was not a big dataset
 
