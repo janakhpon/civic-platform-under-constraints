@@ -144,3 +144,8 @@ vite.config.ts.timestamp-*
 
 # macOS
 .DS_Store
+
+# Local Claude Code settings. `.claude/settings.local.json` carries absolute
+# paths and permission allowlists that name private repositories; this repo is
+# public. It was found staged for commit in a sibling repo on 2026-08-22.
+.claude/
