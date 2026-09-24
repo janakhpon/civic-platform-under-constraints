@@ -2,7 +2,7 @@
 
 ## Off the wire, onto the device
 
-_The second half of a two-part case study. [The first half](../README.md) is the design and the network: the threat model that ruled out a public API, the bill that arrived four years later, and getting 932 MB of cold-visit weight down to about 5. This half is what happened once the bytes were no longer the problem. The work moved off the wire and onto the device, and the device is a low-end phone._
+_The second half of a two-part case study. [The first half](../README.md) is the design and the network: the threat model that ruled out a public API, the bill that arrived years later, and getting 932 MB of cold-visit weight down to about 5. This half is what happened once the bytes were no longer the problem. The work moved off the wire and onto the device, and the device is a low-end phone._
 
 ---
 
@@ -14,9 +14,9 @@ I chose a clean rebuild on the App Router rather than an in-place 14 to 15 to 16
 
 Next.js 16, React 19, strict TypeScript, every route ported behaviour for behaviour. Two details would catch anyone doing the same move on Next.js 16: the internationalisation library we were on does not support the App Router, which meant rewriting every message call site, and the middleware entry point is renamed.
 
-Routing behaviour stayed identical, the default language unprefixed and the second under its own path segment, because changing user-visible URLs on a site other people link to is its own kind of breakage.
+Routing behaviour, including localised URLs, stayed identical, because changing user-visible URLs on a site other people link to is its own kind of breakage.
 
-The change that paid for the whole migration was **turning type checking on.** The old build had `ignoreBuildErrors` set, which is how a three-year-old codebase ends up shipping bugs a compiler would have caught on the first build.
+The change that paid for the whole migration was **turning type checking on.** The old build had `ignoreBuildErrors` set, which is how a years-old codebase ends up shipping bugs a compiler would have caught on the first build.
 
 The clearest example: the explorer's Reset button threw a `ReferenceError` on every single click. It called a setter that never existed. With type checking off the build never complained, and because the error only fired on click, it survived in production for years.
 
@@ -32,7 +32,7 @@ The fix was to fail loudly: throw when the fetched row count does not match the 
 
 A pipeline that stops is safe. A pipeline that continues past an error and publishes anyway is not.
 
-**The second defect had already reached production.** One side of a verified-versus-unverified split was publishing as zero, so an entire category was presented under the wrong label.
+**The second defect had already reached production.** One side of a two-way status split was publishing as zero, so an entire category was presented under the wrong label.
 
 The cause was one level of unwrapping. The source stores certain fields as a small object with the value nested inside, and the pipeline read one level too shallow, comparing an object against a string that never matched.
 
@@ -40,7 +40,7 @@ The reason it went unnoticed is the instructive part. The frontend read the same
 
 Two code paths reading the same source with different assumptions is a bug waiting for one of them to be right by accident.
 
-**The third was a security defect.** The pipeline authenticates to the source with a token and followed the source's pagination links verbatim. Those links came back over plain HTTP even though the base URL was HTTPS, because of a misconfiguration in how the database advertised its own address behind its reverse proxy.
+**The third was a security defect.** The pipeline authenticated to the source with a token and followed the source's pagination links verbatim. Those links came back over plain HTTP even though the base URL was HTTPS.
 
 So on every paginated fetch the token went out in cleartext on the first leg. The redirect to HTTPS did happen, but only after the unencrypted request had already left with the authorization header attached.
 
@@ -64,14 +64,14 @@ Here is the before and after, both live production-built deployments, captured t
 |---|---|---|---|
 | Explorer | ~149 MB | ~5.2 MB | −96.5% |
 | Dashboard | ~570 MB | ~29 MB | −94.9% |
-| Profile listing | ~209 MB | ~13 MB | −93.9% |
+| Listing page | ~209 MB | ~13 MB | −93.9% |
 | All four pages | 932 MB | 49 MB | −94.8% |
 
 Explorer time-to-loaded on the same machine and network went from 42 seconds to about 6, with first contentful paint at 244 ms. Projected against reader bandwidth, first-visit table data goes from ~13.3 minutes to ~14 seconds at 1.5 Mbps, and from ~50 minutes to ~53 seconds at 400 kbps.
 
 Those are instrument numbers, and instrument numbers are not the point of this system. The one that matters came from someone opening the dashboard on their own machine and their own connection, without a capture tool involved: **about four to five minutes minimum, down to about forty-five seconds.**
 
-I checked it against the instrumented values rather than just accepting the good news, because a pleasing anecdote is the easiest thing in the world to publish. It reconciles: the old dashboard measured 4 m 40 s at 570 MB, and the new one at ~28 MB is roughly 14 seconds of transfer at that bandwidth. The remaining thirty seconds is almost entirely an artifact of the dev environment, where about 3,300 avatar requests fail against a bucket that has no profile images. On production, where those images exist and cache, and with the lazy-loading fix taking the request count from ~3,300 to ~30, that tail should mostly disappear.
+I checked it against the instrumented values rather than just accepting the good news, because a pleasing anecdote is the easiest thing in the world to publish. It reconciles: the old dashboard measured 4 m 40 s at 570 MB, and the new one at ~28 MB is roughly 14 seconds of transfer at that bandwidth. The remaining thirty seconds is almost entirely an artifact of the dev environment, where thousands of image requests fail against a bucket that has none of those images. On production, where those images exist and cache, and with the lazy-loading fix taking the request count from thousands to about thirty, that tail should mostly disappear.
 
 So the honest form of the claim is that a real reader went from abandoning the page to using it, on the worse of the two environments.
 
@@ -99,7 +99,7 @@ That distinction matters because reporting only the improvement would have been 
 
 While it is busy running JavaScript it cannot paint, scroll, or respond to a tap. The browser flags any task over 50 ms as a long task, and total blocking time is how much of that accumulates.
 
-The explorer had one bad offender: a single synchronous function building the crossfilter index over all about 40,000 rows in roughly 747 milliseconds of uninterrupted work.
+The explorer had one bad offender: a single synchronous function building the crossfilter index over every row in roughly 747 milliseconds of uninterrupted work.
 
 For three quarters of a second the page was frozen solid.
 
@@ -178,13 +178,13 @@ I also checked the thing time-slicing makes easy to get wrong: I diffed the slic
 
 Proving I had changed only the timing and not the result was not optional.
 
-Result: blocking time on the explorer dropped from about 795 ms to about 148, a 81 percent reduction, measured at 4x CPU throttle.
+Result: blocking time on the explorer dropped from about 795 ms to about 148, an 81 percent reduction, measured at 4x CPU throttle.
 
 I want to be precise about that measurement's limit. It was taken with a long-task proxy, not the same Lighthouse harness that produced the 77-to-42 figure, so a clean confirming Lighthouse run on the fixed build is work I have not done. The relative drop holds; the harness match does not.
 
 ### A different tool for the same scarce resource
 
-The dashboard and profile-listing pages had a related but distinct problem: they fetched large grouped lists and probed ~3,300 images on load, all up front, most of it below the fold.
+The dashboard and listing pages had a related but distinct problem: they fetched large grouped lists and probed thousands of images on load, all up front, most of it below the fold.
 
 I deferred it with an IntersectionObserver, the browser API that cheaply reports when an element is near the viewport without the jank of manual scroll listeners.
 
@@ -206,13 +206,13 @@ const observer = new IntersectionObserver(
 observer.observe(node);
 ```
 
-**Fire early.** The avatar probes use a 200 px `rootMargin` and the below-the-fold list fetches use 400 px, so work starts before the element is actually on screen and the data is ready by the time the reader arrives. Deferral without a margin trades a slow first load for visible pop-in, which readers experience as a worse bug than the one you fixed.
+**Fire early.** The image probes use a 200 px `rootMargin` and the below-the-fold list fetches use 400 px, so work starts before the element is actually on screen and the data is ready by the time the reader arrives. Deferral without a margin trades a slow first load for visible pop-in, which readers experience as a worse bug than the one you fixed.
 
 **Disconnect after firing.** Otherwise the observer keeps calling back on every scroll past.
 
 **Fail open, not closed.** If the API is missing or no element ever mounts, it loads eagerly. The fallback path is the old behaviour, so the worst case of this optimisation is the performance we already had.
 
-Initial-load data on the dashboard dropped from ~26 MB to 0.07 MB, and the profile listing from ~11 MB to 0.09 MB. On-load requests dropped from thousands to under a hundred on both.
+Initial-load data on the dashboard dropped from ~26 MB to 0.07 MB, and the listing page from ~11 MB to 0.09 MB. On-load requests dropped from thousands to under a hundred on both.
 
 Time-slicing and deferral are two disciplines for protecting the same scarce resource. Neither deletes work. One spreads an unavoidable computation so it never blocks; the other declines to do off-screen work until it is warranted.
 
@@ -230,7 +230,7 @@ The through-line of this whole part:
 
 **Optimization moves the bottleneck. It rarely deletes it.**
 
-I moved this system's cost from the network, where it made the site unusable for a bandwidth-constrained audience, onto the CPU, where it shows up in lab scores and on low-end devices. For this audience that is the right trade, because a page interactive in seconds that then does CPU work beats a page still downloading ten minutes later.
+I moved this system's cost from the network, where it made the site unusable for a bandwidth-constrained audience, onto the CPU, where it shows up in lab scores and on low-end devices. For this audience that is the right trade, because a page interactive in seconds that then does CPU work beats a page still downloading minutes later.
 
 But it is a trade, not a free win. The explorer's main-thread cost is largely paid down. The dashboard's is not.
 
@@ -257,7 +257,7 @@ Two of those I was ready to start writing before I measured: virtualization, and
 
 Every row has a named condition in the third column. That is the part I would insist on: **a rejection without a trigger is an opinion, and opinions expire silently.** A rejection with a trigger is a decision the next person can re-evaluate on evidence instead of re-litigating from scratch, which is the difference between leaving a system and leaving a system someone can operate.
 
-One row is missing from that table, because it is a trigger on the constraint the whole design rests on rather than on any single decision: what happens when the data stops updating once a day. Hourly would not break this, and working out why was more useful than the answer. Publish frequency is not the load-bearing property. What matters is how much of the dataset changes per period, because content-defined chunking only re-publishes the chunks whose contents moved. At twenty to twenty-five new records a day, an hourly rebuild would change a handful of chunks and leave the rest of a reader's cache valid, so going twenty-four times more often costs close to what going once costs.
+One row is missing from that table, because it is a trigger on the constraint the whole design rests on rather than on any single decision: what happens when the data stops updating once a day. Hourly would not break this, and working out why was more useful than the answer. Publish frequency is not the load-bearing property. What matters is how much of the dataset changes per period, because content-defined chunking only re-publishes the chunks whose contents moved. At the current daily intake, which is a tiny fraction of the dataset, an hourly rebuild would change a handful of chunks and leave the rest of a reader's cache valid, so going twenty-four times more often costs close to what going once costs.
 
 It fails on a different axis. When a reader is no longer allowed to be as stale as the publish interval, per-minute freshness or a correction that has to reach people before they act on it, a read path goes back in front of the data and [Part 2](../README.md#part-2-three-options-costed-before-any-code) has to be re-costed from the top. Frequency was cheap. Bounded staleness is what the architecture actually bought, and it is the thing to test before reusing any of this.
 
@@ -269,7 +269,7 @@ The numbers above were measured on a develop deployment against a test bucket an
 
 **What will not change:** the byte counts. Payload is a property of what the pipeline writes, not of where it is served from, and this was verified rather than assumed: the same dataset measured 5.16 MB through the CDN against 5.18 direct from storage, at 45 of 45 edge hits. The compression, chunking and caching wins travel unchanged.
 
-**What should improve:** the dashboard and listing figures, in both directions. The dev bucket has no profile images, so roughly 3,300 avatar requests fail there and inflate the wall-clock tail. Production has the images, cached, plus the lazy-loading fix that takes those requests to about thirty on load.
+**What should improve:** the dashboard and listing figures, in both directions. The dev bucket has none of those images, so thousands of image requests fail there and inflate the wall-clock tail. Production has the images, cached, plus the lazy-loading fix that takes those requests to about thirty on load.
 
 **What is still unproven:** the render scores. The first batch was quarantined for mixed provenance, and the time-slicing win was measured with a long-task proxy at 4x throttle rather than the harness that produced the original regression. The relative drop is solid; a clean confirming run on the shipped build is genuinely outstanding work, not a formality I am waving through.
 
@@ -281,9 +281,9 @@ The first thing I want after cutover is not a number from this article. It is a 
 
 What is next is the same discipline applied one more turn. The pipeline already knows which records changed on each run, so it can publish deltas against a base snapshot and let the client keep its copy in a local store, taking repeat visits from megabytes to kilobytes. The 5x grouped-list redundancy collapses into the index the explorer already caches, which would take those pages from tens of megabytes toward the 2.6 MB the index already costs. The remaining main-thread work there comes off the critical path the way the explorer's did.
 
-One item on that list is not about performance. The provenance gap from [Part 1](../README.md#part-1-the-box-we-were-designing-in) is still open: a reader verifies nothing, and has had no way to for four years. It was not rejected, which would at least have been a decision on record. It was never on the table, because we were busy counting the services we had removed and never asked what secured the one we kept.
+One item on that list is not about performance. The provenance gap from [Part 1](../README.md#part-1-the-box-we-were-designing-in) belongs on it. It was not rejected, which would at least have been a decision on record. It was never on the table, because we were busy counting the services we had removed and never asked what secured the one we kept.
 
-Closing it means the pipeline signing what it publishes, the client refusing a manifest whose signature does not verify, and a public key served from somewhere other than the bucket being verified. The mechanism is well understood and the work is bounded. What it needs is someone to own a key, which is precisely the kind of standing obligation this architecture was built to avoid. That is the honest reason it is still open, and it is not a good enough one.
+Closing it means the pipeline signing what it publishes, the client refusing a manifest whose signature does not verify, and a public key served from somewhere other than the bucket being verified. The mechanism is well understood and the work is bounded. What it needs is someone to own a key, which is precisely the kind of standing obligation this architecture was built to avoid. That is not a good enough reason to leave it.
 
 And the browser query engine stays on the shelf with its trigger written next to it: roughly a tenfold growth in the data, at which point an in-memory filter stops being the obvious choice.
 
@@ -309,11 +309,11 @@ If the honest answer is hours rather than milliseconds, most of that infrastruct
 
 **The tool lied twice, and both lies were convincing enough to publish.** This project produced two separate cases of the tool lying: a network-idle heuristic reporting ~149 MB as 0.79 MB, and HEAD requests showing a CDN as permanently cache-missing. Both would have produced confident, wrong write-ups. A control page and a quarantine folder are cheap insurance against publishing either.
 
-**A total says nothing about its own shape.** The dashboard's ~570 MB looked like a big-data problem and was a data-modelling problem: one dataset stored five times. The "avatar storm" looked like a byte problem and was a request-count problem: of ~570 MB, only about 4 MB was images. Both assumptions survived until something split the total by type, and both would have sent me at the wrong fix.
+**A total says nothing about its own shape.** The dashboard's ~570 MB looked like a big-data problem and was a data-modelling problem: one dataset stored five times. The "image storm" looked like a byte problem and was a request-count problem: of ~570 MB, only about 4 MB was images. Both assumptions survived until something split the total by type, and both would have sent me at the wrong fix.
 
 **The seams are the part I would defend, not the speed.** The parts of this system I am most confident in are not the fast parts. They are the versioned contract between two repositories that share no code, the client that is allowed to refuse an index it does not understand, the pipeline that stops instead of publishing a smaller number, and the fallback I deliberately broke before trusting. None of those made anything faster. All of them make it harder for the next person to break this quietly, which on a platform like this matters more than milliseconds.
 
-The corollary is why the simpler option kept winning. It was never an aesthetic preference. A system maintained by one or two people has a hard ceiling on the cleverness it can carry, and building above that ceiling hands someone a bill they never agreed to.
+The corollary is why the simpler option kept winning. It was never an aesthetic preference. Every system has a ceiling on the cleverness its maintainers can carry, and building above that ceiling hands someone a bill they never agreed to.
 
 **An accepted tradeoff still needs a budget and an alarm.** This is the one I got wrong, and it is why this article has two halves.
 

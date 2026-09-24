@@ -1,24 +1,24 @@
 # Designing and Maintaining a Civic Platform Under Constraints
 
-_A case study from both ends: the design, and the same system four years later. The organisation running this platform could itself become a target, so we built it with no public API and no database reachable from the internet. Just files in storage, updated once a day. It held. The cost was that every byte of work moved onto the reader's phone, and nobody was watching that number. By then the main table was a 149 MB page, and most readers were on 400 kbps. This is the design, and what it cost._
+_A case study from both ends: the design, and the same system years later. The organisation running this platform could itself become a target, so we built it with no public API and no database reachable from the internet. Just files in storage, updated once a day. It held. The cost was that every byte of work moved onto the reader's phone, and nobody was watching that number. By then the main table was a 149 MB page, and many readers were on connections as slow as 400 kbps. This is the design, and what it cost._
 
 ![Article cover - designing and maintaining a civic platform](./assets/civic-platform-under-constraints.avif)
 
 Most architecture arguments happen on the axis everyone enjoys: which framework, which database, which cloud. This one got settled on a different axis, and that is the part still worth writing down years later.
 
-We were building a public data platform for a small non-profit. Curated records about individuals, a searchable explorer, four dashboards, and one property that quietly decided everything else: **the organisation running it could itself become a target.**
+We were building a public data platform for a non-profit. Curated records, a searchable explorer, four dashboards, and one property that quietly decided everything else: **the organisation running it could itself become a target.**
 
 Not the data. The data was meant to be public, freely reusable by anyone who credited the source. The organisation.
 
-Once the operator is a target, infrastructure stops being only a cost. Every service you run is a surface, and every surface is something a very small technical team has to defend indefinitely.
+Once the operator is a target, infrastructure stops being only a cost. Every service you run is a surface, and every surface is something someone has to defend indefinitely.
 
-I was a full-stack developer on the team that designed this. I proposed the architecture described here, and when the team agreed I led the implementation and built the CI/CD, the data pipeline, and the infrastructure. Years after it shipped, I did the migration and the optimisation, and that half I did alone.
+I was a full-stack developer on the team that designed this. I proposed the architecture described here, and when the team agreed I led the implementation and built the CI/CD, the data pipeline, and the infrastructure. Years after it shipped, I did the migration and the optimisation.
 
 This is long because it is two stories that only make sense together. The first is the design, and why the boring option won. The second is what that design cost years later, told in the order the work actually happened, including three instincts that were all wrong, an instrument that lied by two orders of magnitude, and a fix that made the scores worse before it made them better.
 
 It runs across two pages, and the break is not between those two stories. It falls where the work changed shape.
 
-**This page: the design, and the network.** Parts 1 to 12. The threat model, three architectures costed before any code, the bill that arrived four years later, and getting 932 MB of cold-visit weight down to about 5.
+**This page: the design, and the network.** Parts 1 to 12. The threat model, three architectures costed before any code, the bill that arrived years later, and getting 932 MB of cold-visit weight down to about 5.
 
 **[Off the wire, onto the device](./docs/part2.md).** Parts 13 to 16, then where it stands. The bugs a compiler found once type checking went on, the render scores the optimisation made worse, the browser's one main thread, and the work I decided not to do.
 
@@ -40,9 +40,9 @@ Worth being precise about what integrity meant in practice, because I was not pr
 
 None of that defends against someone who gains a write path into storage. A reader has no way to check that the bytes they received are the bytes we published; they trust the storage, and that is the whole of it. For a design whose whole premise is that the operator might be a target, that is a real omission, and the fix is a known one: sign what the pipeline publishes, so a reader verifies provenance rather than trusting the bucket. We defended the operator by removing services, and never extended the same reasoning to the storage we kept.
 
-**The operating budget was small and fixed.** Not zero: somebody pays for object storage, for egress, and for the host that runs the internal database. But it was a figure a small non-profit had already committed to, with no line item that grows next quarter. Any design that added a *new* recurring bill was not a solution; it was a cost deferred onto someone with no way to absorb it.
+**The operating budget was small and fixed.** Not zero: somebody pays for object storage, for egress, and for the host that runs the internal database. But it was a figure the organisation had already committed to, with no line item that grows next quarter. Any design that added a *new* recurring bill was not a solution; it was a cost deferred onto someone with no way to absorb it.
 
-**The readers were the constraint that reframed the problem.** Most are on throttled mobile connections, roughly 400 kbps to 1.5 Mbps, on phones rather than laptops, in a region with frequent power and connectivity interruption. Some arrive over VPNs, which narrows the pipe further.
+**The readers were the constraint that reframed the problem.** Most are on slow mobile connections, roughly 400 kbps to 1.5 Mbps, on phones rather than laptops.
 
 When your readers are on connections like that, bytes stop being one factor among several.
 
@@ -66,7 +66,7 @@ This is the default reach, and on the merits it is a perfectly good design. It f
 
 Serving thousands of readers through an API you operate means real compute, and real compute means a monthly bill that grows with success. That alone disqualified it.
 
-The deeper problem was the surface. An API endpoint, a gateway, and a database all exist, all have addresses, and all need patching and monitoring indefinitely by a team with no security engineer on it. Each is a thing that can be taken down on the day the data matters most.
+The deeper problem was the surface. An API endpoint, a gateway, and a database all exist, all have addresses, and all need patching and monitoring indefinitely by whoever runs them. Each is a thing that can be taken down on the day the data matters most.
 
 ### Option two: the hybrid
 
@@ -91,7 +91,7 @@ Storage is the API.
  ┌──────────────────────────────┐        ┌──────────────────────────┐
  │  curated DB  ──►  pipeline   │  ────► │  object storage  ──► CDN │ ──► browser
  │  (source of      (scheduled, │ upload │  (chunks, shards,        │
- │   record)         twice/day) │        │   manifest, gzipped)     │
+ │   record)         once/day)  │        │   manifest, gzipped)     │
  └──────────────────────────────┘        └──────────────────────────┘
         no inbound path from here ▲             nothing executes here
 ```
@@ -138,15 +138,15 @@ That third one is the bill. It took years to arrive, and everything from here is
 
 ## Part 5: Years later, the bill
 
-The design held. It absorbed real growth with no architectural change: past 100,000 records across the main tables, around 132,000 events and roughly 10,000 active readers a year, peaking near 2,800 daily during a spike.
+The design held. It absorbed real growth with no architectural change: years of steadily accumulating records, and a readership in the thousands with the occasional sharp spike.
 
 The operating cost stayed flat and predictable, which was the goal. And nothing ever paged anyone about a crashed process, an unpatched runtime, or a service that had stopped answering, because there was no service in the request path to crash. That is a narrower claim than saying nothing broke. Things broke, and later parts of this article are mostly about them. What the design removed was the class of failure that cannot wait until morning.
 
 Then the tradeoff came to collect.
 
-Records accumulated at twenty to twenty-five a day for five and a half years, and nothing in the design pushed back on file size. The main explorer table passed about 40,000 rows.
+Records accumulated every day for years, and nothing in the design pushed back on file size. The main explorer table grew into the tens of thousands of rows.
 
-I came back to a codebase about three years old, extended by several hands through a period when shipping at all was the win. It worked in the narrow sense: the data was correct and the site stayed up.
+I came back to a codebase several years old, extended by different hands through a period when shipping at all was the win. It worked in the narrow sense: the data was correct and the site stayed up.
 
 It did not work in the sense that mattered. The people who most needed the data were the least able to load it.
 
@@ -155,8 +155,8 @@ Here is what a cold visit actually cost, measured rather than estimated:
 | Page | Cold-visit weight | Requests |
 |---|---|---|
 | Data explorer | ~149 MB | 47 |
-| Dashboard | ~570 MB | 3,413 |
-| Profile listing | ~209 MB | 3,875 |
+| Dashboard | ~570 MB | thousands |
+| Listing page | ~209 MB | thousands |
 | All four pages | 932 MB | — |
 
 Readers waited ten to fifteen minutes for a working table. At 400 kbps, the honest lower bound for part of the audience, the arithmetic puts it near fifty minutes. I label that one a projection from measured bytes divided by stated bandwidth, because that is what it is.
@@ -189,7 +189,7 @@ It fails on a detail: **deletes are invisible to polling.** A record removed at 
 
 Two things kill it here. The engine binary is several megabytes, on the order of the entire encoded dataset I was about to produce, so the first visit pays for the engine before reading a row. And WASM cold-start lands hardest on low-end Android phones, which is exactly the wrong place in this audience.
 
-At forty thousand rows, an in-memory filter over a compact index does everything the page needs.
+At tens of thousands of rows, an in-memory filter over a compact index does everything the page needs.
 
 I wrote down the condition under which that verdict flips: roughly a tenfold growth in the dataset. **Naming the trigger that would make a rejected option correct is more useful than pretending it is wrong forever.**
 
@@ -239,7 +239,7 @@ On top of no compression, the files were pretty-printed, carrying indentation a 
 
 Then gzip at maximum level removed 93.0 percent of the compact payload, taking that 72.1 MB file to ~5 MB. Measured on the real files.
 
-JSON with this much repeated structure, the same field names on every one of forty thousand records, compresses extremely well. Gzip is very good at exactly that redundancy.
+JSON with this much repeated structure, the same field names on every one of tens of thousands of records, compresses extremely well. Gzip is very good at exactly that redundancy.
 
 ### The better option I turned down
 
@@ -247,7 +247,7 @@ Brotli at q11 measured 96.2 percent reduction against gzip's 93.0, roughly 46 pe
 
 I did not use it, and the reason is the origin, not the merits.
 
-Because S3 stores one representation and serves it to everyone regardless of what the client says it accepts, a stored Brotli object gets served to clients that cannot decode it. A modern browser is fine. An older Android WebView, a stripped-down VPN client, or a plain command-line fetch may not be, and this audience has exactly those in the mix.
+Because S3 stores one representation and serves it to everyone regardless of what the client says it accepts, a stored Brotli object gets served to clients that cannot decode it. A modern browser is fine. An older Android WebView, a minimal embedded HTTP client, or a plain command-line fetch may not be, and a mixed, low-end audience includes exactly those.
 
 **When the origin cannot negotiate, you ship the encoding every client can read.** Gzip has had that for twenty-plus years.
 
@@ -265,17 +265,17 @@ One objection deserves a number rather than a reassurance, because "you moved th
 
 Compression got the payload to about 5 MB, and 5 MB is still a lot on a 400 kbps phone. Worse, most of those bytes were paying for content the visitor had not asked to see.
 
-Each row carried more than the fields the table displays. It also held long bilingual narrative fields: the detailed account of each case in two languages. The table shows twenty-odd short columns. The narrative is what a reader sees only after opening one record.
+Each row carried more than the fields the table displays. It also held long free-text fields. The table shows twenty-odd short columns. That free text is what a reader sees only after opening one record.
 
-Every visitor downloaded every narrative for every record, up front, to render a paginated table showing twenty rows at a time.
+Every visitor downloaded every long text field for every record, up front, to render a paginated table showing twenty rows at a time.
 
 ### Three shapes instead of one file
 
-**A compact index.** Only the short fields the table and its filters use, flattened, with categorical values dictionary-encoded. There are only about 150 to 250 distinct values across every region, sector, cause, and age bracket in the whole dataset, so each is stored once in the manifest and referenced by a short key rather than repeating the full string forty thousand times.
+**A compact index.** Only the short fields the table and its filters use, flattened, with categorical values dictionary-encoded. There are only about 150 to 250 distinct values across every categorical field in the whole dataset, so each is stored once in the manifest and referenced by a short key rather than repeating the full string on every row.
 
-That index is ~2.6 MB gzipped for all about 40,000 rows.
+That index is ~2.6 MB gzipped, covering every row in the table.
 
-**256 detail shards.** The long narratives, sliced by a hash of the record id, fetched only when a reader opens that record.
+**256 detail shards.** The long text fields, sliced by a hash of the record id, fetched only when a reader opens that record.
 
 **A manifest**, 4.6 KB, naming the current set of chunks and shards.
 
@@ -295,7 +295,7 @@ That is the cache-busting failure mode fixed-size chunking walks straight into.
 
 Instead the boundaries are **content-defined.** I walk the sorted rows and start a new chunk when a hash of the current row's key meets a boundary condition, clamped to a minimum and maximum so no chunk is pathologically small or large.
 
-Because a boundary is a property of the row's own content, appending the day's twenty-odd new records disturbs only the one or two chunks those records fall into. The other twenty-one hash to the same names they had yesterday and stay in every reader's cache.
+Because a boundary is a property of the row's own content, appending the day's new records disturbs only the one or two chunks those records fall into. The other twenty-one hash to the same names they had yesterday and stay in every reader's cache.
 
 That is the difference between a design that is incremental on paper and one that is incremental in practice.
 
@@ -333,7 +333,7 @@ Row-level change files and versioned snapshots, so a returning client fetches on
 
 It also carries version chains, a compaction strategy so delta history does not grow forever, and stale-client edge cases where a reader who has been away long enough must be detected and rebased onto a fresh snapshot.
 
-Immutable content-hashed chunks already make repeat visits free, as the 0.6 seconds above shows. For a solo-maintained pipeline, the simpler design one person can reason about at 2am beats the optimal one that needs a specialist to debug.
+Immutable content-hashed chunks already make repeat visits free, as the 0.6 seconds above shows. For a small pipeline, the simpler design you can reason about at 2am beats the optimal one that needs a specialist to debug.
 
 ---
 
@@ -357,15 +357,15 @@ The dashboard was the heaviest page at 570 MB, and I assumed for a while that it
 
 Decomposing it reframed the problem completely.
 
-The dashboard downloaded the same 31,000 records five times over, once per grouping dimension: year-month, sector, age, state, gender. Each copy carried full records rather than references.
+The dashboard downloaded the same records five times over, once per grouping dimension: a date field and four categorical ones. Each copy carried full records rather than references.
 
 The dashboard's 570 MB was not a large dataset. It was one dataset duplicated by the grouping strategy.
 
 That distinction changes what counts as a fix. Compression hides the redundancy: gzip took ~570 MB of JSON to 27 MB, which looks like a triumph and leaves the modelling error entirely in place. Reaching for a bandwidth band-aid when the real issue is data modelling is a mistake I have watched teams make repeatedly, and the compression number is exactly what makes it easy to miss.
 
-The decomposition also corrected a second assumption. I had been calling the dashboard's problem an "avatar storm," because it probed around 3,300 images on load. Splitting the transfer by type settled it: all but about 4 MB of that ~570 MB was JSON. The images were a rounding error on the byte total.
+The decomposition also corrected a second assumption. I had been calling the dashboard's problem an "image storm," because it probed thousands of images on load. Splitting the transfer by type settled it: all but about 4 MB of that ~570 MB was JSON. The images were a rounding error on the byte total.
 
-The avatars were a *request-count* problem, roughly 3,300 round trips, not a byte problem. Two different costs needing two different fixes, and I would have aimed at the wrong one.
+The images were a *request-count* problem, thousands of round trips, not a byte problem. Two different costs needing two different fixes, and I would have aimed at the wrong one.
 
 The structural fix, having the pipeline emit lean groupings where each group is a list of ids plus one shared store of records, is scoped and not done. It needs a pipeline order-field to preserve the exact visuals, which gated it. Doing that de-duplication in the browser instead would add main-thread work, which [Part 14](./docs/part2.md#part-14-what-the-optimization-broke) explains is the last thing this system needs.
 
@@ -373,7 +373,7 @@ The structural fix, having the pipeline emit lean groupings where each group is 
 
 ## Part 12: A content network that added no new bill
 
-The payload was now small, but every byte still came from a single storage region, and a request from the readers' region to a bucket in a neighbouring one pays that round trip on every uncached fetch.
+The payload was now small, but every byte still came from a single storage region, and a request from where the readers are to a bucket in another region pays that round trip on every uncached fetch.
 
 A CDN is the standard answer and the standard worry is that it adds a bill. Here it did not.
 
@@ -391,7 +391,7 @@ Verified end to end: 45 of 45 edge cache hits over HTTP/3, and the same payload 
 
 ### The alternative I looked at and declined
 
-An object store with no egress fees behind its own network, which also has an edge location physically closer to this audience.
+An object store with no egress fees, behind its own edge network.
 
 I did not choose it, and the reason is the constraint rather than the merits. Adopting it meant migrating or dual-publishing every public object and rewriting hardcoded bucket URLs scattered through two codebases. That is architectural churn on a system I was told not to churn, for a latency gain that is small next to the payload win already banked.
 
@@ -399,9 +399,9 @@ Worth naming the pattern underneath, because it comes up constantly: the popular
 
 If traffic ever grows into real egress bills the calculus changes and I would revisit. Today it would be motion without payoff.
 
-### Three console traps
+### Two console traps
 
-One default is worth knowing, because the cheapest price class excludes the region this audience is in, so the cheap option is the wrong option here.
+The first is the price class. The cheaper classes serve from only a subset of edge locations, so check that the one you pick covers where your readers actually are before taking the saving.
 
 The other cost me an afternoon: **a HEAD request does not populate the edge cache.** I verified cache behaviour with a command that issues HEADs, saw an unbroken run of misses, and briefly believed the CDN was misconfigured.
 
